@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- The CSP placeholder below is replaced at build time with a policy that only allows this site and your Supabase project. -->
+    <meta http-equiv="Content-Security-Policy" content="__CSP__" />
+    <meta name="referrer" content="no-referrer" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>DICOM Reporting</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230b1220'/%3E%3Ccircle cx='16' cy='16' r='9' fill='none' stroke='%2338bdf8' stroke-width='2.5'/%3E%3Cpath d='M16 7v18M7 16h18' stroke='%2338bdf8' stroke-width='1.5' opacity='.6'/%3E%3C/svg%3E" />
+    <link rel="stylesheet" href="./src/style.css" />
+  </head>
+  <body>
+    <div id="boot" class="boot">Loading…</div>
+
+    <!-- ===================== Sign-in ===================== -->
+    <main id="auth" class="auth" hidden>
+      <div class="auth-card">
+        <div class="brand big">
+          <svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="10" fill="none" stroke="currentColor" stroke-width="2.5"/><path d="M16 6v20M6 16h20" stroke="currentColor" stroke-width="1.5" opacity=".55"/></svg>
+          <span>DICOM Reporting</span>
+        </div>
+
+        <form id="form-login" class="auth-step" hidden>
+          <h1>Sign in</h1>
+          <label>Email <input id="login-email" type="email" autocomplete="username" required /></label>
+          <label>Password <input id="login-password" type="password" autocomplete="current-password" required /></label>
+          <button class="btn primary wide" type="submit">Sign in</button>
+          <button class="linklike" type="button" id="btn-show-forgot">Forgot password?</button>
+        </form>
+
+        <form id="form-forgot" class="auth-step" hidden>
+          <h1>Reset password</h1>
+          <p class="muted">We'll email a reset link if the address has an account.</p>
+          <label>Email <input id="forgot-email" type="email" autocomplete="username" required /></label>
+          <button class="btn primary wide" type="submit">Send reset link</button>
+          <button class="linklike" type="button" data-back-to-login>Back to sign in</button>
+        </form>
+
+        <form id="form-mfa-enrol" class="auth-step" hidden>
+          <h1>Set up two-factor sign-in</h1>
+          <p class="muted">Two-factor sign-in is required. Scan this code with an authenticator app (for example Microsoft Authenticator or Google Authenticator), then enter the 6-digit code it shows.</p>
+          <div class="qr"><img id="mfa-qr" alt="QR code for your authenticator app" /></div>
+          <details class="small"><summary>Can't scan? Enter this key instead</summary><code id="mfa-secret" class="secret"></code></details>
+          <label>6-digit code <input id="mfa-enrol-code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required /></label>
+          <button class="btn primary wide" type="submit">Verify and continue</button>
+          <button class="linklike" type="button" data-signout>Sign out</button>
+        </form>
+
+        <form id="form-mfa" class="auth-step" hidden>
+          <h1>Two-factor check</h1>
+          <p class="muted">Enter the 6-digit code from your authenticator app.</p>
+          <label>6-digit code <input id="mfa-code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required /></label>
+          <button class="btn primary wide" type="submit">Verify</button>
+          <button class="linklike" type="button" data-signout>Sign out</button>
+        </form>
+
+        <form id="form-password" class="auth-step" hidden novalidate>
+          <h1>Choose a password</h1>
+          <p class="muted">At least 12 characters, with upper- and lower-case letters and a number.</p>
+          <label>New password <input id="new-password" type="password" autocomplete="new-password" minlength="12" required /></label>
+          <label>Repeat password <input id="new-password-2" type="password" autocomplete="new-password" minlength="12" required /></label>
+          <button class="btn primary wide" type="submit">Save password</button>
+        </form>
+
+        <div id="step-no-role" class="auth-step" hidden>
+          <h1>Waiting for access</h1>
+          <p class="muted">Your account exists but an administrator hasn't assigned you a role yet. Contact your administrator, then sign in again.</p>
+          <button class="btn wide" type="button" data-signout>Sign out</button>
+        </div>
+
+        <div id="step-config" class="auth-step" hidden>
+          <h1>Not configured</h1>
+          <p class="muted">This site was built without Supabase settings. See the README: set <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_PUBLISHABLE_KEY</code> and rebuild.</p>
+        </div>
+
+        <p id="auth-error" class="auth-msg error" role="alert" hidden></p>
+        <p id="auth-info" class="auth-msg info" role="status" hidden></p>
+        <p class="auth-foot">Authorised users only. Activity is logged. Not a medical device.</p>
+      </div>
+    </main>
+
+    <!-- ===================== Application ===================== -->
+    <div id="app" hidden>
+      <nav class="appbar" aria-label="Main">
+        <div class="brand">
+          <svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="10" fill="none" stroke="currentColor" stroke-width="2.5"/><path d="M16 6v20M6 16h20" stroke="currentColor" stroke-width="1.5" opacity=".55"/></svg>
+          <span>DICOM Reporting</span>
+        </div>
+        <div class="nav" id="nav">
+          <button class="navbtn" data-page="cases" data-roles="uploader">My cases</button>
+          <button class="navbtn" data-page="upload" data-roles="uploader">New upload</button>
+          <button class="navbtn" data-page="worklist" data-roles="radiologist">Worklist</button>
+          <button class="navbtn" data-page="admin" data-roles="admin">Users &amp; audit</button>
+        </div>
+        <div class="spacer"></div>
+        <div class="bell">
+          <button id="btn-bell" class="btn icon" aria-haspopup="true" aria-expanded="false" title="Notifications">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 16V11a6 6 0 1 1 12 0v5l1.5 2h-15zM10 20a2 2 0 0 0 4 0" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+            <span id="bell-count" class="count" hidden></span>
+          </button>
+          <div id="bell-menu" class="menu" hidden></div>
+        </div>
+        <span id="whoami" class="whoami"></span>
+        <button id="btn-signout" class="btn ghost" data-signout>Sign out</button>
+      </nav>
+
+      <!-- Uploader: list of cases -->
+      <section id="page-cases" class="page" hidden>
+        <div class="page-head">
+          <h1>My cases</h1>
+          <button class="btn primary" data-goto="upload">New upload</button>
+        </div>
+        <div id="cases-table" class="table-wrap"></div>
+      </section>
+
+      <!-- Radiologist: worklist -->
+      <section id="page-worklist" class="page" hidden>
+        <div class="page-head">
+          <h1>Worklist</h1>
+          <div class="tabs" role="tablist">
+            <button class="tab active" data-wl="awaiting" role="tab">Awaiting report</button>
+            <button class="tab" data-wl="mine" role="tab">In progress</button>
+            <button class="tab" data-wl="done" role="tab">Reported by me</button>
+          </div>
+        </div>
+        <div id="worklist-table" class="table-wrap"></div>
+      </section>
+
+      <!-- Admin -->
+      <section id="page-admin" class="page" hidden>
+        <div class="page-head"><h1>Invite someone</h1></div>
+        <div id="invite-holder" class="panel-box"></div>
+        <div class="page-head"><h1>Users</h1></div>
+        <p class="muted small">Change a role or choose “No access” to lock someone out immediately. Use “Reset 2FA” if someone loses their authenticator app.</p>
+        <div id="users-table" class="table-wrap"></div>
+        <div class="page-head"><h1>Audit log</h1><span class="muted small">Latest 200 events</span></div>
+        <div id="audit-table" class="table-wrap"></div>
+      </section>
+
+      <!-- Viewer -->
+      <section id="page-viewer" class="viewer" hidden>
+        <header class="topbar">
+          <button id="btn-back" class="btn" title="Back to list">← Back</button>
+          <button id="btn-sidebar" class="btn icon mobile-only" aria-label="Show series list">☰</button>
+
+          <div class="group local-only" hidden>
+            <button id="btn-open-folder" class="btn primary" title="Choose a folder of DICOM files">Open folder</button>
+            <button id="btn-open-files" class="btn" title="Choose individual DICOM files">Open files</button>
+            <input id="input-folder" type="file" webkitdirectory directory multiple hidden />
+            <input id="input-files" type="file" multiple hidden />
+          </div>
+
+          <div class="group segmented" role="radiogroup" aria-label="Layout">
+            <button class="seg active" data-layout="stack" role="radio" aria-checked="true">Stack</button>
+            <button class="seg" data-layout="mpr" role="radio" aria-checked="false" id="btn-mpr" disabled title="Load a volumetric series to enable MPR">MPR</button>
+          </div>
+
+          <div class="group tools" id="toolbar" role="toolbar" aria-label="Mouse tools">
+            <button class="tool active" data-tool="WindowLevel" title="Window / level (W)">W/L</button>
+            <button class="tool" data-tool="Pan" title="Pan (P) — middle mouse always pans">Pan</button>
+            <button class="tool" data-tool="Zoom" title="Zoom (Z) — right mouse always zooms">Zoom</button>
+            <button class="tool" data-tool="StackScroll" title="Drag to scroll slices (S) — wheel always scrolls">Scroll</button>
+            <span class="sep"></span>
+            <button class="tool" data-tool="Length" title="Length (L)">Length</button>
+            <button class="tool" data-tool="Angle" title="Angle (A)">Angle</button>
+            <button class="tool" data-tool="EllipticalROI" title="Ellipse ROI (E)">Ellipse</button>
+            <button class="tool" data-tool="RectangleROI" title="Rectangle ROI (R)">Rect</button>
+            <button class="tool" data-tool="Probe" title="Pixel probe (B)">Probe</button>
+            <button class="tool" data-tool="Crosshairs" title="Crosshairs (C) — MPR only" disabled>Crosshairs</button>
+          </div>
+
+          <div class="group">
+            <label class="select">
+              <span class="visually-hidden">Window preset</span>
+              <select id="preset" title="Window presets">
+                <option value="">Preset…</option>
+                <option value="auto">Default (from file)</option>
+                <optgroup label="CT">
+                  <option value="40,80">Brain 40 / 80</option>
+                  <option value="80,200">Subdural 80 / 200</option>
+                  <option value="40,40">Stroke 40 / 40</option>
+                  <option value="600,2800">Bone 600 / 2800</option>
+                  <option value="50,350">Soft tissue 50 / 350</option>
+                  <option value="-600,1500">Lung −600 / 1500</option>
+                  <option value="300,600">Angio 300 / 600</option>
+                </optgroup>
+              </select>
+            </label>
+            <button id="btn-invert" class="btn icon" title="Invert (I)">Invert</button>
+            <button id="btn-reset" class="btn icon" title="Reset view (Esc)">Reset</button>
+            <button id="btn-cine" class="btn icon" title="Play / pause cine (Space)" aria-pressed="false">▶</button>
+            <label class="fps" title="Cine frames per second">
+              <input id="fps" type="number" min="1" max="60" value="15" aria-label="Frames per second" /> fps
+            </label>
+            <button id="btn-clear-annot" class="btn icon" title="Delete all measurements">Clear marks</button>
+          </div>
+
+          <div class="group right">
+            <button id="btn-tags" class="btn" aria-pressed="false" title="Show DICOM tags (T)">Tags</button>
+            <button id="btn-case" class="btn" aria-pressed="true" title="Case and report panel">Case</button>
+            <button id="btn-close-all" class="btn ghost local-only" hidden title="Remove the selected files">Clear files</button>
+          </div>
+        </header>
+
+        <div class="layout">
+          <aside class="sidebar" aria-label="Studies and series">
+            <div class="sidebar-head">
+              <h2>Series</h2>
+              <label class="toggle" title="Masks patient identifiers on screen only.">
+                <input type="checkbox" id="hide-phi" checked />
+                <span>Hide identifiers</span>
+              </label>
+            </div>
+            <div id="series-list" class="series-list">
+              <p class="muted small">No images loaded.</p>
+            </div>
+            <div class="privacy-note" id="privacy-note">
+              Not a medical device; not for primary diagnosis unless locally approved.
+            </div>
+          </aside>
+
+          <main class="stage" id="stage">
+            <div id="viewport-grid" class="viewport-grid layout-stack"></div>
+            <div id="empty" class="empty">
+              <div class="drop-card">
+                <svg viewBox="0 0 48 48" aria-hidden="true"><path d="M8 14a4 4 0 0 1 4-4h8l4 4h12a4 4 0 0 1 4 4v16a4 4 0 0 1-4 4H12a4 4 0 0 1-4-4z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M24 20v12m-5-5 5 5 5-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <h1 id="empty-title">Drop a DICOM folder here</h1>
+                <p id="empty-text">or use <em>Open folder</em>. Files are anonymised in your browser before upload.</p>
+                <p class="muted small">Wheel: scroll · Left: active tool · Middle: pan · Right: zoom</p>
+              </div>
+            </div>
+            <div id="drop-overlay" class="drop-overlay" hidden><span>Release to load</span></div>
+            <div id="progress" class="progress" hidden>
+              <div class="progress-text" id="progress-text">Reading…</div>
+              <div class="progress-bar"><div id="progress-fill"></div></div>
+            </div>
+            <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+          </main>
+
+          <aside class="tags-panel" id="tags-panel" aria-label="DICOM tags" hidden>
+            <div class="tags-head">
+              <h2>DICOM tags</h2>
+              <button class="btn ghost small" id="btn-tags-close" aria-label="Close tags">✕</button>
+            </div>
+            <input id="tag-search" type="search" placeholder="Filter by tag, name or value" autocomplete="off" />
+            <div id="tag-source" class="muted small"></div>
+            <div id="tag-table" class="tag-table"></div>
+          </aside>
+
+          <aside class="case-panel" id="case-panel" aria-label="Case and report"></aside>
+        </div>
+      </section>
+    </div>
+
+    <script type="module" src="./src/app.js"></script>
+  </body>
+</html>
