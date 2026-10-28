@@ -1,0 +1,91 @@
+name: Deploy
+
+# On every push to main: set up / update the Supabase backend, then build and
+# publish the site to GitHub Pages. Safe to re-run (Actions → Deploy → Run workflow).
+#
+# Repository secrets (Settings → Secrets and variables → Actions → New repository secret):
+#   SUPABASE_ACCESS_TOKEN   required  personal access token (supabase.com/dashboard/account/tokens)
+#   SUPABASE_PROJECT_REF    required  20-letter project reference
+#   ADMIN_EMAIL             required  first administrator; invited automatically
+#   RESEND_API_KEY          optional  enables invitation and report-ready emails
+#   EMAIL_FROM              optional  e.g. "DICOM Reporting <reports@your-domain.org>"
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - id: pages
+        uses: actions/configure-pages@v6
+
+      - id: check
+        name: Check secrets
+        run: |
+          if [ -n "$SUPABASE_ACCESS_TOKEN" ] && [ -n "$SUPABASE_PROJECT_REF" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::SUPABASE_ACCESS_TOKEN and SUPABASE_PROJECT_REF are not set, so only a 'Not configured' page will be published. See SETUP.md."
+          fi
+
+      - id: backend
+        name: Set up Supabase backend
+        if: steps.check.outputs.configured == 'true'
+        run: node scripts/deploy-backend.mjs
+        env:
+          SITE_URL: ${{ steps.pages.outputs.base_url }}/
+          ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+
+      - name: Deploy server functions
+        if: steps.check.outputs.configured == 'true'
+        run: npx --yes supabase@2.122.0 functions deploy notify-email admin-users --project-ref "$SUPABASE_PROJECT_REF" --no-verify-jwt --use-api
+
+      - run: npm ci
+
+      - name: Build site
+        run: npm run build
+        env:
+          # Public by design: the site needs these to reach Supabase. All data
+          # protection is enforced by the database, not by keeping these secret.
+          VITE_SUPABASE_URL: ${{ steps.backend.outputs.supabase_url }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ steps.backend.outputs.publishable_key }}
+          VITE_IDLE_MINUTES: ${{ vars.IDLE_MINUTES || '15' }}
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5
