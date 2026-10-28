@@ -85,16 +85,16 @@ async function main() {
   }
 
   // 3. Authentication settings -------------------------------------------------
+  // Only settings available on every plan go in this call. Plan-dependent
+  // settings (some need paid add-ons even to set them to "off") are applied
+  // one at a time below, so they can never block a deployment.
   const authConfig = {
     site_url: SITE_URL,
     uri_allow_list: [SITE_URL, `${SITE_URL}**`].join(','),
     disable_signup: true,                       // invitation only
     external_email_enabled: true,               // email + password sign-in
-    external_phone_enabled: false,
-    external_anonymous_users_enabled: false,
     mfa_totp_enroll_enabled: true,              // authenticator apps
     mfa_totp_verify_enabled: true,
-    mfa_phone_enroll_enabled: false,
     password_min_length: 12,
     password_required_characters: 'abcdefghijklmnopqrstuvwxyz:ABCDEFGHIJKLMNOPQRSTUVWXYZ:0123456789',
     security_update_password_require_reauthentication: true,
@@ -110,13 +110,29 @@ async function main() {
   await api('PATCH', `/v1/projects/${REF}/config/auth`, authConfig);
   log(`Auth: sign-up disabled, two-factor enabled, 12+ character passwords, site ${SITE_URL}${emailEnabled ? ', email via Resend' : ''}`);
 
-  // Pro-plan hardening: applied when available, otherwise noted.
-  try {
-    await api('PATCH', `/v1/projects/${REF}/config/auth`, { sessions_timebox: 12, sessions_inactivity_timeout: 0.5, password_hibp_enabled: true });
-    log('Auth: 12-hour session limit, 30-minute server-side inactivity timeout, leaked-password check');
-  } catch (e) {
-    warn(`Session limits and leaked-password checks were not applied (they need a Supabase Pro plan): ${e.message}`);
+  const optional = [
+    ['phone sign-in off', { external_phone_enabled: false }],
+    ['anonymous sign-in off', { external_anonymous_users_enabled: false }],
+    ['12-hour session limit and 30-minute server-side inactivity timeout (Pro plan)', { sessions_timebox: 12, sessions_inactivity_timeout: 0.5 }],
+    ['leaked-password check (Pro plan)', { password_hibp_enabled: true }],
+  ];
+  for (const [label, patch] of optional) {
+    try {
+      await api('PATCH', `/v1/projects/${REF}/config/auth`, patch);
+      log(`Auth: ${label}`);
+    } catch (e) {
+      warn(`Not applied: ${label}. ${e.message}`);
+    }
   }
+
+  // Read the settings back and stop if the essentials did not take effect.
+  const auth = await api('GET', `/v1/projects/${REF}/config/auth`);
+  const problems = [];
+  if (auth.disable_signup !== true) problems.push('public sign-up is still enabled');
+  if (auth.mfa_totp_enroll_enabled !== true || auth.mfa_totp_verify_enabled !== true) problems.push('authenticator-app two-factor is not enabled');
+  if (auth.external_email_enabled !== true) problems.push('email/password sign-in is disabled');
+  if (problems.length) fail(`Auth settings did not apply: ${problems.join('; ')}.`);
+  if (auth.external_phone_enabled === true) warn('Phone sign-in is enabled in this project. The app does not use it; consider turning it off in the dashboard.');
 
   // 4. API keys for the site -------------------------------------------------
   const keys = await api('GET', `/v1/projects/${REF}/api-keys?reveal=true`);
