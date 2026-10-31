@@ -1,6 +1,6 @@
 # DICOM Reporting
 
-A secure web app for sending scans for remote reporting. An **uploader** signs in, selects a scan, and it is anonymised in their browser before upload. A **radiologist** signs in, views it in a full DICOM viewer, and writes and signs a report. The uploader is notified in the app and by email when the report is ready.
+A secure web app for sending scans for remote reporting. An **uploader** signs in and selects a scan. By default it is anonymised in their browser before upload; for sharing within the organisation, they can instead upload it identifiable after confirming that. A **radiologist** signs in, views it in a full DICOM viewer, and writes and signs a report. The uploader is notified in the app and by email when the report is ready.
 
 - Frontend: static site on GitHub Pages (Vite, Cornerstone3D viewer)
 - Backend: Supabase (Postgres with row-level security, Auth with two-factor, private Storage, Edge Function)
@@ -41,7 +41,13 @@ Case status runs from *uploading* to *awaiting report*, then *being reported* (c
 - Signed reports are locked by a trigger, which also blocks the database owner. Corrections are added as signed addenda, which are equally permanent: a trigger blocks any edit or deletion, even by the database owner. Only the signing radiologist can add one, through a function that checks their role, that they signed the report, and two-factor sign-in.
 - An append-only audit log, protected by a trigger, records case creation, submission, every time a case's images are opened, claims, releases, signatures, addenda and role changes.
 
-**Anonymisation before upload (in the browser)**
+**Optional anonymisation**
+- Anonymisation is on by default. The uploader can untick it, but only after ticking a confirmation that the images are being shared within their organisation. The form then uploads the original files unchanged and asks once more before sending.
+- The database refuses an identifiable case without that confirmation, stores both flags on the case where they can't be changed afterwards, and records the choice in the audit log.
+- Identifiable cases are marked **Identifiable** in the uploader's list, on the radiologists' worklist and in the case panel. The viewer's "Hide identifiers" switch still masks patient details on screen by default.
+- In identifiable mode the identifier checks on the case label and clinical details are relaxed, so a hospital number can be included. The one-patient-per-case rule still applies. Notification emails never contain patient details in either mode.
+
+**Anonymisation before upload (in the browser, default)**
 - Removes patient name and IDs (replaced with `ANON^<case ref>`), birth date, every date and time, institution, staff names, accession number, private tags, overlays, icon images and "original attributes" history, plus about 100 other identifying fields. UIDs are replaced with new ones.
 - Keeps sex, age, size and weight, and study/series/protocol descriptions, so the scan stays reportable. Any kept text containing the patient's name or ID is dropped.
 - Each rewritten file is re-parsed and scanned byte by byte, outside the pixel data, for the original identifiers. A file that fails is not uploaded and nothing is submitted.
@@ -58,7 +64,7 @@ Case status runs from *uploading* to *awaiting report*, then *being reported* (c
 ### What was tested
 
 Tested against a local Supabase stack:
-- **93 automated security checks** (`npm run test:security`). These include:
+- **106 automated security checks** (`npm run test:security`). These include:
   - cross-user reads and downloads
   - role escalation
   - uploads to other cases or outside permitted paths
@@ -68,8 +74,10 @@ Tested against a local Supabase stack:
   - anonymous access
   - forged or replayed email calls
   - the user-management function refusing non-admins, admins without two-factor, and tampered tokens
+  - optional anonymisation: identifiable cases refused without the organisation confirmation, flags unchangeable after upload, the choice audited
   - addenda: only the signing radiologist can add one, never before signing, never by direct insert; addenda can't be edited or deleted; the original report is unchanged; only the right people can read them; notifications and emails are sent
 - **Deploy script** run against a schema-validating mock of the Supabase Management API, twice, to confirm it is safe to re-run. It has **not yet run against a real hosted project.**
+- **Identifiable upload in the browser**: the confirmation is required; stored files are byte-identical to the originals; the case is marked Identifiable for the uploader and the radiologist. The default anonymised path was re-run unchanged.
 - **Addendum in the browser**: the radiologist adds an addendum to a signed case; the uploader gets the notification and email, sees "+1 addendum" in their list, reads it below the original, and downloads both.
 - **Upgrade path**: an existing deployment picks up the addendum migration on its next push.
 - **First-day flow**: the admin accepts the emailed invitation and invites an uploader, both by email and by one-time link; the uploader signs up.

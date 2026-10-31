@@ -2,7 +2,7 @@
 // audit log, notifications, and opening a case in the viewer.
 
 import { supabase, must, callFunction } from './supabase.js';
-import { h, fmtDateTime, shortRef, statusChip, table } from './dom.js';
+import { h, fmtDateTime, shortRef, statusChip, table, caseLabel } from './dom.js';
 import { loadFiles, resetViewerUI, setLocalLoading, showProgress, toast } from './viewer-ui.js';
 import { renderCasePanel } from './casepanel.js';
 import { startUpload } from './upload.js';
@@ -78,11 +78,11 @@ async function renderCases() {
   const target = $('cases-table');
   try {
     const rows = must(await supabase.from('studies')
-      .select('id, case_label, modality, file_count, status, created_at, submitted_at, reported_at, addendum_count')
+      .select('id, case_label, modality, file_count, status, created_at, submitted_at, reported_at, addendum_count, anonymised')
       .order('created_at', { ascending: false }).limit(500));
     target.replaceChildren(table([
       { label: 'Ref', class: 'mono', render: (r) => shortRef(r.id) },
-      { label: 'Case', render: (r) => r.case_label },
+      { label: 'Case', render: caseLabel },
       { label: 'Modality', render: (r) => r.modality || '—' },
       { label: 'Files', class: 'num', render: (r) => r.file_count },
       { label: 'Submitted', render: (r) => fmtDateTime(r.submitted_at) },
@@ -116,7 +116,7 @@ async function renderWorklist() {
   const me = session.profile.id;
   try {
     let q = supabase.from('studies')
-      .select('id, case_label, clinical_details, modality, summary, file_count, status, submitted_at, claimed_at, reported_at, addendum_count');
+      .select('id, case_label, clinical_details, modality, summary, file_count, status, submitted_at, claimed_at, reported_at, addendum_count, anonymised');
     if (session.worklistTab === 'awaiting') q = q.eq('status', 'awaiting_report').order('submitted_at', { ascending: true });
     if (session.worklistTab === 'mine') q = q.eq('status', 'in_review').eq('radiologist_id', me).order('claimed_at', { ascending: true });
     if (session.worklistTab === 'done') q = q.eq('status', 'reported').eq('radiologist_id', me).order('reported_at', { ascending: false });
@@ -124,7 +124,7 @@ async function renderWorklist() {
     const when = { awaiting: 'submitted_at', mine: 'claimed_at', done: 'reported_at' }[session.worklistTab];
     target.replaceChildren(table([
       { label: 'Ref', class: 'mono', render: (r) => shortRef(r.id) },
-      { label: 'Case', render: (r) => r.case_label },
+      { label: 'Case', render: caseLabel },
       { label: 'Clinical details', class: 'clip', render: (r) => r.clinical_details || '—' },
       { label: 'Modality', render: (r) => r.modality || '—' },
       { label: 'Images', class: 'num', render: (r) => r.file_count },
@@ -253,7 +253,7 @@ export async function openCase(studyId) {
   let study;
   try {
     study = must(await supabase.from('studies')
-      .select('id, case_label, clinical_details, modality, summary, file_count, status, uploader_id, radiologist_id, created_at, submitted_at, claimed_at, reported_at, addendum_count')
+      .select('id, case_label, clinical_details, modality, summary, file_count, status, uploader_id, radiologist_id, created_at, submitted_at, claimed_at, reported_at, addendum_count, anonymised')
       .eq('id', studyId).single());
   } catch (err) {
     toast(`This case is not available: ${err.message}`, 'error', 8000);

@@ -20,7 +20,10 @@ export async function renderCasePanel(study, { onChanged, onClosed }) {
       h('dt', {}, 'Reference'), h('dd', { class: 'mono' }, shortRef(study.id)),
       h('dt', {}, 'Modality'), h('dd', {}, study.modality || '—'),
       h('dt', {}, 'Images'), h('dd', {}, `${study.file_count}${study.summary ? ` · ${study.summary}` : ''}`),
-      h('dt', {}, 'Submitted'), h('dd', {}, fmtDateTime(study.submitted_at))),
+      h('dt', {}, 'Submitted'), h('dd', {}, fmtDateTime(study.submitted_at)),
+      h('dt', {}, 'Privacy'), h('dd', {}, study.anonymised === false
+        ? h('span', { class: 'chip identifiable' }, 'Identifiable · shared within organisation')
+        : 'Anonymised')),
     h('h3', {}, 'Clinical details'),
     h('p', { class: 'cp-text' }, study.clinical_details || 'None given.'));
 

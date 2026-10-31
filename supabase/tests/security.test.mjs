@@ -212,6 +212,38 @@ async function main() {
     check('audit log cannot be deleted, even by the database owner', blocked);
   }
 
+  console.log('\nOptional anonymisation');
+  {
+    const base = { p_case_label: 'Identifiable case', p_clinical_details: 'MRN 12345', p_modality: 'MR', p_summary: '' };
+    const noConfirm = await up1.c.rpc('create_study', { ...base, p_anonymised: false });
+    check('identifiable upload refused without the organisation confirmation', !!noConfirm.error);
+    const falseConfirm = await up1.c.rpc('create_study', { ...base, p_anonymised: false, p_internal_share_confirmed: false });
+    check('identifiable upload refused when confirmation is false', !!falseConfirm.error);
+    const ok = await up1.c.rpc('create_study', { ...base, p_anonymised: false, p_internal_share_confirmed: true });
+    check('identifiable upload accepted with confirmation', !ok.error && !!ok.data, ok.error?.message);
+    const idStudy = ok.data;
+    check('case records identifiable + confirmed', sql(`select anonymised::text || ',' || internal_share_confirmed::text from public.studies where id='${idStudy}'`) === 'false,true');
+    const def = await up1.c.rpc('create_study', { p_case_label: 'Default case', p_clinical_details: '', p_modality: 'CT', p_summary: '' });
+    check('default is anonymised', sql(`select anonymised::text || ',' || internal_share_confirmed::text from public.studies where id='${def.data}'`) === 'true,false');
+    const conf = await up1.c.rpc('create_study', { p_case_label: 'Anon with stray confirm', p_clinical_details: '', p_modality: 'CT', p_summary: '', p_anonymised: true, p_internal_share_confirmed: true });
+    check('confirmation is not recorded for anonymised cases', sql(`select internal_share_confirmed::text from public.studies where id='${conf.data}'`) === 'false');
+    const flip = await up1.c.from('studies').update({ anonymised: true }).eq('id', idStudy).select();
+    check('uploader cannot change the privacy flag afterwards', sql(`select anonymised::text from public.studies where id='${idStudy}'`) === 'false', flip.error?.message);
+    let blocked = false;
+    try { sql(`update public.studies set internal_share_confirmed=false where id='${idStudy}'`); } catch { blocked = true; }
+    check('database refuses an identifiable case without confirmation (constraint)', blocked);
+    const rad = await rad1.c.rpc('create_study', { ...base, p_anonymised: false, p_internal_share_confirmed: true });
+    check('radiologist still cannot create studies', !!rad.error);
+    const aal1 = await noMfa.c.rpc('create_study', { ...base, p_anonymised: false, p_internal_share_confirmed: true });
+    check('password-only session cannot create an identifiable study', !!aal1.error);
+    const anonCall = await client().rpc('create_study', { ...base, p_anonymised: false, p_internal_share_confirmed: true });
+    check('anonymous caller cannot create an identifiable study', !!anonCall.error);
+    const a = await adm.c.from('audit_log').select('detail').eq('study_id', idStudy).eq('action', 'study.created').single();
+    check('audit log records the privacy choice', a.data?.detail?.anonymised === false && a.data?.detail?.internal_share_confirmed === true, JSON.stringify(a.data));
+    const u2 = await up2.c.from('studies').select('id').eq('id', idStudy);
+    check("other uploader cannot see the identifiable case", (u2.data ?? []).length === 0);
+  }
+
   console.log('\nAddenda');
   {
     const original = sql(`select body from public.reports where study_id='${study1}'`);

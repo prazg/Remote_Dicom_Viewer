@@ -4,7 +4,7 @@ You do about 15 minutes of set-up once. After that, every push to `main` updates
 
 ## Before you start: governance
 
-The app anonymises scans in the browser before upload (see README). If you intend to use it with NHS patient data, even anonymised, check with your Trust's information governance team first. You will likely need a DPIA and data-processing agreements with Supabase (and Resend, if you use email). Using it for clinical reporting may also bring it under medical-device regulation. This guide covers the technical set-up only.
+The app anonymises scans in the browser before upload by default (see README). Uploaders can choose to send identifiable images within the organisation instead; if you allow that, the Supabase project must be in a region and under agreements your organisation approves for identifiable patient data. If you intend to use it with NHS patient data, even anonymised, check with your Trust's information governance team first. You will likely need a DPIA and data-processing agreements with Supabase (and Resend, if you use email). Using it for clinical reporting may also bring it under medical-device regulation. This guide covers the technical set-up only.
 
 ## One-time set-up
 
@@ -85,6 +85,7 @@ Push to `main`. New files in `supabase/migrations/` are applied automatically; a
 
 | Symptom | Fix |
 |---|---|
+| Site stays on "Loading…" (then shows "The app hasn't started"); `README.md` and `src/` files open at the site address | Pages is publishing the branch instead of the build. Settings → Pages → Source: **GitHub Actions**, then Actions → Deploy → Run workflow |
 | Site says "Not configured" | `SUPABASE_ACCESS_TOKEN` or `SUPABASE_PROJECT_REF` is missing; add it and re-run |
 | Workflow warning "Could not email the admin invitation" | Set up email (above), or invite yourself in the Supabase dashboard (Authentication → Users → Invite user) and re-run the workflow, which then gives that account the admin role |
 | Workflow fails at "Set up Supabase backend" with 401/403 | The access token is wrong, revoked or expired |
@@ -125,7 +126,7 @@ DB_URL=postgresql://postgres:postgres@127.0.0.1:54322/postgres \
 npm run test:security
 ```
 
-The suite runs 93 checks against a running stack, covering:
+The suite runs 106 checks against a running stack, covering:
 - cross-user access and role escalation
 - uploads outside permitted paths
 - tampering with signed reports and the audit log
@@ -133,5 +134,6 @@ The suite runs 93 checks against a running stack, covering:
 - forged email calls
 - the user-management function (non-admins, admins without 2FA, tampered tokens)
 - report addenda (who can add and read them, immutability, notifications)
+- optional anonymisation (confirmation enforced by the database, flags fixed after upload, audit)
 
 Run it only locally; it creates users.

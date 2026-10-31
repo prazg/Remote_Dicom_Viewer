@@ -37,6 +37,13 @@ export function statusChip(status, addendumCount = 0) {
   return h('span', { class: 'chips' }, chip, h('span', { class: 'chip amended', title: 'The signed report has addenda' }, label));
 }
 
+/** Case label with an "Identifiable" marker for cases uploaded without anonymisation. */
+export function caseLabel(row) {
+  if (row.anonymised !== false) return row.case_label;
+  return h('span', { class: 'chips' }, h('span', {}, row.case_label),
+    h('span', { class: 'chip identifiable', title: 'Uploaded without anonymisation, for sharing within the organisation' }, 'Identifiable'));
+}
+
 export function table(columns, rows, empty = 'Nothing here yet.') {
   if (!rows.length) return h('p', { class: 'muted empty-row' }, empty);
   return h('table', { class: 'data' },

@@ -12,7 +12,15 @@
     <link rel="stylesheet" href="./src/style.css" />
   </head>
   <body>
-    <div id="boot" class="boot">Loading…</div>
+    <div id="boot" class="boot">
+      <p>Loading…</p>
+      <!-- Shown only if the app never starts (e.g. the unbuilt source was published). -->
+      <div class="boot-help">
+        <p><strong>The app hasn't started.</strong></p>
+        <p>If you run this site: in the GitHub repository, open Settings → Pages and set <em>Source</em> to <strong>GitHub Actions</strong>, then run the Deploy workflow (Actions → Deploy → Run workflow). Publishing straight from a branch serves the source code instead of the built app.</p>
+        <p>Otherwise, try reloading the page, or use a current version of Chrome, Edge, Firefox or Safari.</p>
+      </div>
+    </div>
 
     <!-- ===================== Sign-in ===================== -->
     <main id="auth" class="auth" hidden>

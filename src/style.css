@@ -234,7 +234,12 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
 
 /* =================== App shell =================== */
 #app { flex: 1; min-height: 0; display: flex; flex-direction: column; }
-.boot { margin: auto; color: var(--muted); }
+.boot { margin: auto; color: var(--muted); max-width: 520px; padding: 24px; text-align: center; }
+.boot-help { visibility: hidden; opacity: 0; margin-top: 12px; text-align: left; padding: 14px 16px; border-radius: 10px;
+  background: #2a2108; border: 1px solid #5a4512; color: #fde68a; line-height: 1.5;
+  animation: boot-help-show 0s 12s forwards; }
+.boot-help p { margin: 0 0 8px; }
+@keyframes boot-help-show { to { visibility: visible; opacity: 1; } }
 .appbar {
   flex: none; display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
   min-height: 52px; padding: 8px 14px; background: #070c17; border-bottom: 1px solid var(--line);
@@ -379,3 +384,12 @@ td select { height: 28px; border-radius: 6px; background: var(--panel-2); border
 .addendum-editor { min-height: 140px; }
 .chip.amended { color: #a5b4fc; border-color: #3b3f8f; background: #171a3d; margin-left: 6px; }
 .chips { display: inline-flex; flex-wrap: wrap; gap: 4px 0; align-items: center; }
+
+/* Optional anonymisation */
+.chip.identifiable { color: #fca5a5; border-color: #7f1d1d; background: #2a0e0e; margin-left: 6px; }
+fieldset.privacy { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px 12px; margin: 12px 0 0; }
+fieldset.privacy legend { padding: 0 6px; font-size: 11px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
+fieldset.privacy .check:first-of-type { margin-top: 4px; }
+.identifiable-box { background: #2a0e0e; border-color: #7f1d1d; color: #fecaca; }
+.btn.primary.danger { background: #f87171; border-color: #f87171; color: #1f0606; }
+.btn.primary.danger:hover { background: #fca5a5; }
