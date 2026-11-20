@@ -5,6 +5,7 @@
 import { supabase, isConfigured, IDLE_MINUTES, urlAuth, must } from './supabase.js';
 import { initViewerUI } from './viewer-ui.js';
 import { enterApp } from './pages.js';
+import { initLocalSandbox, openLocalSandbox } from './local-sandbox.js';
 
 const $ = (id) => document.getElementById(id);
 const STEPS = ['form-login', 'form-forgot', 'form-mfa-enrol', 'form-mfa', 'form-password', 'step-no-role', 'step-config'];
@@ -13,10 +14,13 @@ let needsPassword = urlAuth.type === 'invite' || urlAuth.type === 'recovery';
 let enrolFactorId = null;
 let entered = false;
 let busy = false;
+let activeAuthStep = isConfigured ? 'form-login' : 'step-config';
 
 function showStep(id) {
+  activeAuthStep = id;
   $('boot').hidden = true;
   $('app').hidden = true;
+  if ($('local-sandbox')) $('local-sandbox').hidden = true;
   $('auth').hidden = false;
   for (const s of STEPS) $(s).hidden = s !== id;
   $(id).querySelector('input')?.focus();
@@ -187,7 +191,23 @@ function startIdleTimer() {
 // ---------- Boot ----------
 
 async function boot() {
-  if (!isConfigured) { showStep('step-config'); return; }
+  initLocalSandbox({
+    onExit: () => showStep(activeAuthStep),
+  });
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('[data-open-sandbox]')) {
+      openLocalSandbox();
+    }
+  });
+
+  const params = new URLSearchParams(window.location.search);
+  const wantsSandbox = params.get('sandbox') === '1' && !urlAuth.type && !urlAuth.error;
+
+  if (!isConfigured) {
+    showStep('step-config');
+    if (wantsSandbox) await openLocalSandbox();
+    return;
+  }
   wireForms();
   await initViewerUI();
 
@@ -206,6 +226,8 @@ async function boot() {
 
   try { await route(); }
   catch (err) { showStep('form-login'); authError(err.message); }
+
+  if (!entered && wantsSandbox) await openLocalSandbox();
 }
 
 boot();

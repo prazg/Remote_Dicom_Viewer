@@ -2,7 +2,7 @@
 
 A secure web app for sending scans for remote reporting. An **uploader** signs in and selects a scan. By default it is anonymised in their browser before upload; for sharing within the organisation, they can instead upload it identifiable after confirming that. A **radiologist** signs in, views it in a full DICOM viewer, and writes and signs a report. The uploader is notified in the app and by email when the report is ready.
 
-- Frontend: static site on GitHub Pages (Vite, Cornerstone3D viewer)
+- Frontend: static site on GitHub Pages (Vite, Cornerstone3D viewer + zero-upload Local DICOM Sandbox with built-in Synthetic Brain MRI & Head CT phantom)
 - Backend: Supabase (Postgres with row-level security, Auth with two-factor, private Storage, Edge Function)
 
 **Deploying:** create a Supabase project, add three secrets to the GitHub repository, and run the workflow. It sets up the database, sign-in security, server functions and website, and invites you as the first admin. See **[SETUP.md](SETUP.md)**.
@@ -119,6 +119,7 @@ src/upload.js                  Upload flow and identifier guards
 src/anonymise.js               Browser anonymiser with post-write leak scan
 src/casepanel.js               Case details and report editor
 src/viewer-ui.js, viewer.js    DICOM viewer UI and Cornerstone3D setup
+src/local-sandbox.js           Zero-upload browser-local DICOM quick-viewer & synthetic Brain MRI / Head CT phantom
 src/ingest.js, tags.js         DICOM parsing, series grouping, tag panel
 supabase/migrations/           Schema, access rules, workflow functions, storage policies
 supabase/functions/notify-email  Email on signed report (Resend), queued by the database

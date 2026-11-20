@@ -1,5 +1,11 @@
 // Tiny DOM helper. Text is always set with textContent, never innerHTML,
-// so values from the database cannot inject markup.
+// so values from the database or DICOM headers cannot inject markup.
+export function escapeHtml(str) {
+  return String(str ?? '').replace(/[&<>"']/g, (ch) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  }[ch]));
+}
+
 export function h(tag, attrs = {}, ...children) {
   const el = document.createElement(tag);
   for (const [k, v] of Object.entries(attrs || {})) {

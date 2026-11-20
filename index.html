@@ -57,6 +57,16 @@
           <label>Password <input id="login-password" type="password" autocomplete="current-password" required /></label>
           <button class="btn primary wide" type="submit">Sign in</button>
           <button class="linklike" type="button" id="btn-show-forgot">Forgot password?</button>
+
+          <div class="auth-divider"><span>or inspect locally without signing in</span></div>
+          <div class="sandbox-callout">
+            <div class="sandbox-callout-head">
+              <span class="sandbox-badge">100% Browser-Local</span>
+              <span class="sandbox-badge subtle">Zero Network Upload</span>
+            </div>
+            <p class="muted small">Open local <code>.dcm</code> files or explore the built-in 24-slice Brain MRI &amp; Head CT phantom with W/L presets, 3-plane reslicing, mm ruler, and DICOM tag inspector.</p>
+            <button class="btn sandbox-cta wide" type="button" id="btn-sandbox-auth" data-open-sandbox>Open Local DICOM Sandbox (Zero Upload)</button>
+          </div>
         </form>
 
         <form id="form-forgot" class="auth-step" hidden>
@@ -97,11 +107,28 @@
           <h1>Waiting for access</h1>
           <p class="muted">Your account exists but an administrator hasn't assigned you a role yet. Contact your administrator, then sign in again.</p>
           <button class="btn wide" type="button" data-signout>Sign out</button>
+          <button class="btn sandbox-cta wide" type="button" data-open-sandbox>Open Local DICOM Sandbox (Zero Upload)</button>
         </div>
 
         <div id="step-config" class="auth-step" hidden>
-          <h1>Not configured</h1>
-          <p class="muted">This site was built without Supabase settings. See the README: set <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_PUBLISHABLE_KEY</code> and rebuild.</p>
+          <div class="sandbox-callout-head">
+            <span class="sandbox-badge warn">Cloud Reporting Unconfigured</span>
+            <span class="sandbox-badge">Local Sandbox Ready</span>
+          </div>
+          <h1>Local DICOM Workstation Ready</h1>
+          <p class="muted">Remote cloud reporting is not configured on this deployment (set <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_PUBLISHABLE_KEY</code> per <code>SETUP.md</code> to enable TOTP-authenticated clinical teleradiology).</p>
+          <div class="sandbox-callout hero">
+            <p class="sandbox-hero-title">Instant Zero-Upload DICOM Quick-Viewer</p>
+            <p class="muted small">Inspect local uncompressed Explicit/Implicit-VR DICOM files directly in browser RAM or launch the built-in <strong>Synthetic Brain MRI &amp; Head CT Multi-Slice Phantom</strong> — zero server, zero uploads.</p>
+            <div class="sandbox-feature-pills" aria-hidden="true">
+              <span>24-Slice Brain MRI + CT</span>
+              <span>Brain / Subdural / Bone W/L</span>
+              <span>Axial · Coronal · Sagittal</span>
+              <span>Calibrated mm Ruler</span>
+              <span>DICOM Tag Inspector</span>
+            </div>
+            <button class="btn primary wide sandbox-launch-primary" type="button" id="btn-sandbox-config" data-open-sandbox>Open Local DICOM Sandbox (Zero Upload)</button>
+          </div>
         </div>
 
         <p id="auth-error" class="auth-msg error" role="alert" hidden></p>
@@ -215,6 +242,11 @@
                   <option value="-600,1500">Lung −600 / 1500</option>
                   <option value="300,600">Angio 300 / 600</option>
                 </optgroup>
+                <optgroup label="MRI">
+                  <option value="530,860">MRI T1 Brain 530 / 860</option>
+                  <option value="640,620">MRI Contrast 640 / 620</option>
+                  <option value="480,940">MRI T2 / FLAIR 480 / 940</option>
+                </optgroup>
               </select>
             </label>
             <button id="btn-invert" class="btn icon" title="Invert (I)">Invert</button>
@@ -282,6 +314,143 @@
         </div>
       </section>
     </div>
+
+    <!-- ===================== Local DICOM Sandbox (Zero Upload) ===================== -->
+    <section id="local-sandbox" class="sandbox-shell" hidden aria-label="Local DICOM Sandbox">
+      <header class="topbar sandbox-topbar">
+        <button id="sb-back" class="btn" type="button" title="Return to Sign-In card">← Back to Sign-In</button>
+        <button id="sb-sidebar-toggle" class="btn icon mobile-only" type="button" aria-label="Toggle series sidebar">☰</button>
+
+        <span class="sandbox-pill" title="100% client-side execution — zero files leave your browser">
+          <span class="sandbox-dot" aria-hidden="true"></span>
+          <span>Local Sandbox · Zero Upload</span>
+        </span>
+
+        <div class="group">
+          <button id="sb-open-files" class="btn primary" type="button" title="Open local DICOM (.dcm) files">Open DICOM</button>
+          <button id="sb-open-folder" class="btn" type="button" title="Open a local folder of DICOM slices">Open Folder</button>
+          <button id="sb-load-phantom" class="btn ghost" type="button" title="Reload built-in Synthetic Brain MRI &amp; Head CT phantom">Load Phantom</button>
+          <input id="sb-input-files" type="file" multiple hidden />
+          <input id="sb-input-folder" type="file" webkitdirectory directory multiple hidden />
+        </div>
+
+        <div class="group segmented" role="radiogroup" aria-label="Orthogonal view plane">
+          <button class="seg active" type="button" data-sb-plane="axial" role="radio" aria-checked="true">Axial</button>
+          <button class="seg" type="button" data-sb-plane="coronal" role="radio" aria-checked="false">Coronal</button>
+          <button class="seg" type="button" data-sb-plane="sagittal" role="radio" aria-checked="false">Sagittal</button>
+        </div>
+
+        <div class="group tools" role="toolbar" aria-label="Sandbox radiology tools">
+          <button class="tool active" type="button" data-sb-tool="wl" title="Window / Level drag (W)">W/L</button>
+          <button class="tool" type="button" data-sb-tool="scroll" title="Drag or wheel to scrub slices (S)">Scroll</button>
+          <button class="tool" type="button" data-sb-tool="pan" title="Pan image (P) — middle mouse always pans">Pan</button>
+          <button class="tool" type="button" data-sb-tool="zoom" title="Zoom image (Z) — right mouse always zooms">Zoom</button>
+          <span class="sep"></span>
+          <button class="tool" type="button" data-sb-tool="length" title="Calibrated distance ruler in mm (L)">Measure mm</button>
+          <button class="tool" type="button" data-sb-tool="probe" title="Pixel / Hounsfield Unit probe (B)">Probe</button>
+        </div>
+
+        <div class="group">
+          <label class="select">
+            <span class="visually-hidden">Sandbox window preset</span>
+            <select id="sb-preset" title="Window / Level presets">
+              <option value="">W/L Preset…</option>
+              <option value="auto">Auto (from DICOM)</option>
+              <option value="brain">Brain (CT 40/80 · MR 530/860)</option>
+              <option value="subdural">Subdural / Contrast (CT 80/200 · MR 640/620)</option>
+              <option value="stroke">Stroke / Tight (CT 40/40 · MR 560/340)</option>
+              <option value="bone">Bone / Calvarium (CT 600/2800 · MR 380/1180)</option>
+              <option value="soft">Soft Tissue (CT 50/350 · MR 480/940)</option>
+              <option value="lung">Lung (−600 / 1500)</option>
+              <option value="angio">Angio (300 / 600)</option>
+            </select>
+          </label>
+          <button id="sb-invert" class="btn icon" type="button" title="Invert greyscale LUT (I)">Invert</button>
+          <button id="sb-reset" class="btn icon" type="button" title="Reset zoom, pan &amp; W/L (Esc)">Reset</button>
+          <button id="sb-cine" class="btn icon" type="button" aria-pressed="false" title="Play / pause slice cine (Space)">▶</button>
+          <button id="sb-clear-rulers" class="btn icon" type="button" title="Clear distance measurements">Clear marks</button>
+          <button id="sb-download-dcm" class="btn ghost small" type="button" title="Download current slice as a DICOM Part 10 (.dcm) file">Export .dcm</button>
+        </div>
+
+        <div class="group right">
+          <button id="sb-toggle-tags" class="btn" type="button" aria-pressed="true" title="Toggle DICOM Metadata Tag Inspector (T)">DICOM Tags</button>
+        </div>
+      </header>
+
+      <div class="sandbox-layout">
+        <aside class="sidebar sandbox-sidebar" aria-label="Local sandbox series">
+          <div class="sidebar-head">
+            <h2>Series</h2>
+            <label class="toggle" title="Mask patient identifiers on screen">
+              <input type="checkbox" id="sb-hide-phi" />
+              <span>Mask PHI</span>
+            </label>
+          </div>
+          <div id="sb-series-list" class="series-list">
+            <p class="muted small">Initialising phantom…</p>
+          </div>
+
+          <div class="sb-wl-controls">
+            <div class="sb-wl-row">
+              <label for="sb-wl-center">Level (L)</label>
+              <span id="sb-wl-center-val" class="mono">530</span>
+            </div>
+            <input id="sb-wl-center" type="range" min="-1024" max="2000" value="530" />
+            <div class="sb-wl-row">
+              <label for="sb-wl-width">Width (W)</label>
+              <span id="sb-wl-width-val" class="mono">860</span>
+            </div>
+            <input id="sb-wl-width" type="range" min="1" max="3500" value="860" />
+          </div>
+
+          <div class="privacy-note">
+            <strong>Zero-Upload Guarantee:</strong> Files stay in browser memory via FileReader + <code>dicom-parser</code>. Nothing is transmitted over the network.
+          </div>
+        </aside>
+
+        <main class="stage sandbox-stage" id="sb-stage">
+          <div class="sandbox-canvas-wrap">
+            <canvas id="sb-canvas" tabindex="0" aria-label="Local DICOM slice viewport"></canvas>
+            <div class="vp-overlay">
+              <div class="c tl" id="sb-hud-tl"></div>
+              <div class="c tr" id="sb-hud-tr"></div>
+              <div class="c bl" id="sb-hud-bl"></div>
+              <div class="c br" id="sb-hud-br"></div>
+            </div>
+          </div>
+
+          <div class="sandbox-scrubber" role="region" aria-label="Slice scrubber and quick window presets">
+            <button id="sb-prev-slice" class="btn small" type="button" title="Previous slice (↑)">◀</button>
+            <input id="sb-slice-slider" type="range" min="1" max="24" value="13" aria-label="Slice index" />
+            <button id="sb-next-slice" class="btn small" type="button" title="Next slice (↓)">▶</button>
+            <span id="sb-slice-label" class="mono sb-slice-readout">13 / 24</span>
+            <div class="sb-quick-presets" aria-label="Quick window presets">
+              <button class="sb-chip active" type="button" data-sb-quick-preset="auto">Auto</button>
+              <button class="sb-chip" type="button" data-sb-quick-preset="brain">Brain</button>
+              <button class="sb-chip" type="button" data-sb-quick-preset="subdural">Subdural</button>
+              <button class="sb-chip" type="button" data-sb-quick-preset="stroke">Stroke</button>
+              <button class="sb-chip" type="button" data-sb-quick-preset="bone">Bone</button>
+            </div>
+          </div>
+
+          <div id="sb-drop-overlay" class="drop-overlay" hidden><span>Drop DICOM files or folder to inspect locally</span></div>
+          <div id="sb-toast" class="toast" role="status" aria-live="polite" hidden></div>
+        </main>
+
+        <aside class="tags-panel" id="sb-tags-panel" aria-label="DICOM metadata inspector">
+          <div class="tags-head">
+            <div class="tags-head-title">
+              <h2>DICOM Metadata</h2>
+              <span id="sb-tags-count" class="badge">0</span>
+            </div>
+            <button class="btn ghost small" id="sb-tags-close" type="button" aria-label="Close DICOM tags">✕</button>
+          </div>
+          <input id="sb-tag-search" type="search" placeholder="Filter by (GGGG,EEEE), keyword, VR or value" autocomplete="off" />
+          <div id="sb-tag-source" class="muted small sb-tag-source"></div>
+          <div id="sb-tag-table" class="tag-table"></div>
+        </aside>
+      </div>
+    </section>
 
     <script type="module" src="./src/app.js"></script>
   </body>

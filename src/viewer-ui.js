@@ -196,7 +196,7 @@ export async function loadFiles(files, { label = 'Reading' } = {}) {
   if (!currentSeries()) {
     // Open the series with the most images first: usually the main volume.
     const best = result.touchedSeries.sort((a, b) => b.imageIds.length - a.imageIds.length)[0];
-    if (best) openSeries(best, 'stack');
+    if (best) await openSeries(best, 'stack');
   }
   onFilesLoaded(result);
   return result;

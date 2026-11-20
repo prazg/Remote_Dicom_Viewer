@@ -76,6 +76,15 @@ function formatValue(ds, el, vr) {
   return `<${el.length} bytes>`;
 }
 
+function normalizeVr(ds, rawVr) {
+  if (!rawVr) return '';
+  if (rawVr === 'OB|OW' || rawVr === 'OB or OW') return 'OW';
+  if (rawVr === 'US|SS' || rawVr === 'US or SS') {
+    try { return ds.uint16('x00280103') === 1 ? 'SS' : 'US'; } catch { return 'US'; }
+  }
+  return rawVr;
+}
+
 /**
  * Builds a flat list of rows (with depth) from a dicom-parser DataSet.
  */
@@ -84,7 +93,7 @@ function collectRows(ds, depth = 0, rows = []) {
   for (const tag of tags) {
     const el = ds.elements[tag];
     const info = lookup(tag);
-    const vr = el.vr || info.vr || (el.items ? 'SQ' : '');
+    const vr = normalizeVr(ds, el.vr || info.vr || (el.items ? 'SQ' : ''));
     const { key } = tagKey(tag);
     if (el.items) {
       rows.push({ depth, key, vr: 'SQ', name: info.name, value: `${el.items.length} item(s)`, seq: true });

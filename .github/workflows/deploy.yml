@@ -54,6 +54,7 @@ jobs:
       - id: backend
         name: Set up Supabase backend
         if: steps.check.outputs.configured == 'true'
+        continue-on-error: true
         run: node scripts/deploy-backend.mjs
         env:
           SITE_URL: ${{ steps.pages.outputs.base_url }}/
@@ -61,19 +62,29 @@ jobs:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
 
+      - name: Warn if Supabase backend sync was skipped
+        if: steps.check.outputs.configured == 'true' && steps.backend.outcome != 'success'
+        run: |
+          echo "::warning::Supabase backend sync failed (for example, an expired SUPABASE_ACCESS_TOKEN). Continuing frontend build and GitHub Pages deployment using fallback variables or browser-local DICOM sandbox mode."
+
       - name: Deploy server functions
-        if: steps.check.outputs.configured == 'true'
+        if: steps.backend.outcome == 'success'
+        continue-on-error: true
         run: npx --yes supabase@2.122.0 functions deploy notify-email admin-users --project-ref "$SUPABASE_PROJECT_REF" --no-verify-jwt --use-api
 
       - run: npm ci
 
       - name: Build site
-        run: npm run build
+        run: |
+          if [ -z "$VITE_SUPABASE_URL" ] || [ -z "$VITE_SUPABASE_PUBLISHABLE_KEY" ]; then
+            echo "::warning::Building site without VITE_SUPABASE_URL / VITE_SUPABASE_PUBLISHABLE_KEY (backend sync skipped or failed). Local DICOM Sandbox mode remains fully functional."
+          fi
+          npm run build
         env:
           # Public by design: the site needs these to reach Supabase. All data
           # protection is enforced by the database, not by keeping these secret.
-          VITE_SUPABASE_URL: ${{ steps.backend.outputs.supabase_url }}
-          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ steps.backend.outputs.publishable_key }}
+          VITE_SUPABASE_URL: ${{ steps.backend.outputs.supabase_url || vars.VITE_SUPABASE_URL || '' }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ steps.backend.outputs.publishable_key || vars.VITE_SUPABASE_PUBLISHABLE_KEY || '' }}
           VITE_IDLE_MINUTES: ${{ vars.IDLE_MINUTES || '15' }}
 
       - uses: actions/upload-pages-artifact@v5

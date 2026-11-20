@@ -6,11 +6,12 @@ function cspPlugin(supabaseUrl) {
   let origin = '';
   try { origin = new URL(supabaseUrl).origin; } catch { /* not configured */ }
   const wsOrigin = origin.replace(/^http/, 'ws');
+  const connectSrc = ["connect-src 'self' data: blob:", origin, wsOrigin].filter(Boolean).join(' ');
   const policy = [
     "default-src 'self'",
     "script-src 'self' 'wasm-unsafe-eval'", // WebAssembly image decoders
     "worker-src 'self' blob:",
-    `connect-src 'self' data: blob: ${origin} ${wsOrigin}`.trim(),
+    connectSrc,
     "img-src 'self' data: blob:",
     "style-src 'self' 'unsafe-inline'",
     "font-src 'self'",
@@ -26,10 +27,11 @@ function cspPlugin(supabaseUrl) {
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), 'VITE_');
+  const supabaseUrl = env.VITE_SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
   return {
     // Relative paths: the build works under any GitHub Pages repository name.
     base: './',
-    plugins: [cspPlugin(env.VITE_SUPABASE_URL)],
+    plugins: [cspPlugin(supabaseUrl)],
     // The DICOM image loader starts its decode worker with
     // `new URL('./decodeImageFrameWorker.js', import.meta.url)`; pre-bundling
     // it in dev breaks that URL, so it is excluded from optimisation.
