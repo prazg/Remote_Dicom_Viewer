@@ -54,7 +54,9 @@ jobs:
       - id: backend
         name: Set up Supabase backend
         if: steps.check.outputs.configured == 'true'
-        continue-on-error: true
+        # No continue-on-error: if the backend can't be reached (e.g. an expired
+        # SUPABASE_ACCESS_TOKEN), the run fails and the previous, working site
+        # stays live instead of being replaced by one without sign-in.
         run: node scripts/deploy-backend.mjs
         env:
           SITE_URL: ${{ steps.pages.outputs.base_url }}/
@@ -62,14 +64,8 @@ jobs:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
 
-      - name: Warn if Supabase backend sync was skipped
-        if: steps.check.outputs.configured == 'true' && steps.backend.outcome != 'success'
-        run: |
-          echo "::warning::Supabase backend sync failed (for example, an expired SUPABASE_ACCESS_TOKEN). Continuing frontend build and GitHub Pages deployment using fallback variables or browser-local DICOM sandbox mode."
-
       - name: Deploy server functions
         if: steps.backend.outcome == 'success'
-        continue-on-error: true
         run: npx --yes supabase@2.122.0 functions deploy notify-email admin-users --project-ref "$SUPABASE_PROJECT_REF" --no-verify-jwt --use-api
 
       - run: npm ci
@@ -77,7 +73,7 @@ jobs:
       - name: Build site
         run: |
           if [ -z "$VITE_SUPABASE_URL" ] || [ -z "$VITE_SUPABASE_PUBLISHABLE_KEY" ]; then
-            echo "::warning::Building site without VITE_SUPABASE_URL / VITE_SUPABASE_PUBLISHABLE_KEY (backend sync skipped or failed). Local DICOM Sandbox mode remains fully functional."
+            echo "::warning::Supabase secrets are not set, so this site is built as the local sandbox only (no sign-in or cloud reporting). See SETUP.md."
           fi
           npm run build
         env:
